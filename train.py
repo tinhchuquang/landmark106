@@ -1,28 +1,31 @@
 from dataset import Landmark106Dataset
 import torch.nn as nn
 from torchvision import transforms
+import torchvision.models as models
 from torch.utils.data import Dataset, DataLoader
-from model import LandmarkModel
+from model import MobileNetV3Landmark
 import torch
 
 
 def train():
-    img_dir = "dataset/images"
-    label_dir = "dataset/labels"
+    img_dir = '/media/tinhcq/data1/Training_data'
+    label_dir = '/media/tinhcq/data1/Training_data/Corrected_landmark/Corrected_landmark'
     batch_size = 32
     epochs = 30
     lr = 1e-3
     img_size = 224
 
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.485,0.456,0.406], [0.229,0.224,0.225])
-    ])
+    # transform = transforms.Compose([
+    #     transforms.ToTensor(),
+    #     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+    # ])
 
-    dataset = Landmark106Dataset(img_dir, label_dir, img_size, transform)
+    dataset = Landmark106Dataset(img_dir, label_dir, img_size)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
 
-    model = LandmarkModel(num_points=106).cuda()
+    model = MobileNetV3Landmark(num_points=106).cuda()
+    # resnet = models.resnet18(pretrained=True)
+    # model = Net(resnet).cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.MSELoss()
 
@@ -39,7 +42,7 @@ def train():
             total_loss += loss.item() * img.size(0)
         print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(dataset):.6f}")
 
-    torch.save(model.state_dict(), "landmark106_mobilenetv2.pth")
+    torch.save(model.state_dict(), "checkpoints/106_landmark/landmark106_mobilenetv3_small.pth")
 
 if __name__ == "__main__":
     train()
