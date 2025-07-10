@@ -6,6 +6,7 @@ import cv2
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 import numpy as np
+from config.configs import image_size, img_dir, label_dir
 
 class Landmark106Dataset(Dataset):
     def __init__(self, img_dir, label_dir, img_size=224, transform=None, augment=True):
@@ -13,17 +14,20 @@ class Landmark106Dataset(Dataset):
         self.label_dir = label_dir
         self.img_size = img_size
         self.samples = []
-        for fname in os.listdir(self.label_dir):
-            label_path = os.path.join(self.label_dir, fname)
-            with open(label_path, 'r') as f:
-                lines = f.readlines()
-            num_points = len(lines) - 1  # bỏ dòng đầu
-            if num_points != 106:
-                continue  # bỏ qua file không đủ 106 điểm
-            image_name = fname.split('_')[0] + '/picture/' + fname.replace('.txt', '')
-            img_path = os.path.join(self.img_dir, image_name)
-            if os.path.exists(img_path):
-                self.samples.append((img_path, label_path))
+        for img_folder, label_folder in zip(self.img_dir, self.label_dir):
+            for fname in os.listdir(label_folder):
+                label_path = os.path.join(label_folder, fname)
+                with open(label_path, 'r') as f:
+                    lines = f.readlines()
+                num_points = len(lines) - 1  # bỏ dòng đầu
+                if num_points != 106:
+                    continue
+                image_name = fname.replace('.txt', '.jpg')
+                img_path = os.path.join(img_folder, image_name)
+                if os.path.exists(img_path):
+                    self.samples.append((img_path, label_path))
+                else:
+                    print(f"Không tìm thấy ảnh: {img_path} cho label: {label_path}")
 
         # Albumentations pipeline
         self.transform = transform
@@ -70,11 +74,11 @@ class Landmark106Dataset(Dataset):
         return image, keypoints
 
 if __name__ == '__main__':
-    img_dir = '/media/tinhcq/data1/Training_data'
-    label_dir = '/media/tinhcq/data1/Training_data/Corrected_landmark/Corrected_landmark'
-    img_size = 224
+    # img_dir = '/media/tinhcq/data1/Training_data'
+    # label_dir = '/media/tinhcq/data1/Training_data/Corrected_landmark/Corrected_landmark'
+    # img_size = 224
 
-    dataset = Landmark106Dataset(img_dir, label_dir, img_size=img_size)
+    dataset = Landmark106Dataset(img_dir, label_dir, img_size=image_size)
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     for i, (img, pts) in enumerate(dataloader):
@@ -85,11 +89,11 @@ if __name__ == '__main__':
         img_vis = img[0].permute(1, 2, 0).cpu().numpy()
         img_vis = (img_vis * 0.229 + 0.485) * 255  # Approx de-normalize
         img_vis = np.clip(img_vis, 0, 255).astype('uint8')
-        xs = pts[0][0::2].numpy() * img_size
-        ys = pts[0][1::2].numpy() * img_size
+        xs = pts[0][0::2].numpy() * image_size
+        ys = pts[0][1::2].numpy() * image_size
         plt.figure(figsize=(5,5))
         plt.imshow(img_vis)
         plt.scatter(xs, ys, s=8, c='red')
         plt.title('Sample with landmarks')
         plt.show()
-        break
+        # break
