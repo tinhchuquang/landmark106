@@ -2,17 +2,24 @@ import os
 import torch
 import cv2
 import numpy as np
-from model import MobileNetV3Landmark
+from utils.preproces import  crop_center
+from models.hrnet import get_face_alignment_net
+from config.hrnet_w18_config import config as hrnet_w18_config
 from config.configs import num_points, image_size, std, mean
+from scrfd import SCRFD
+from utils.heatmap2landmark import soft_argmax
 
 # ==== Đường dẫn ====
-img_folder = '/media/tinhcq/data1/Training_data/LaPa/val/images'  # Thư mục chứa ảnh
-model_weight = 'checkpoints/106_landmark/best_landmark106_yolo.pth'
+img_folder = '/media/tinhcq/data1/Training_data/LaPa/train/images'  # Thư mục chứa ảnh
+model_weight = 'checkpoints/106_landmark/best_landmark106_hrnet.pth'
 
 # ==== Load model Landmark ====
-model = YOLOv10Landmark(num_points=num_points)
+model = get_face_alignment_net(hrnet_w18_config)
 model.load_state_dict(torch.load(model_weight, map_location='cpu'))
-# model.eval()
+model.eval()
+detector = SCRFD(model_file='checkpoints/scrfd/scrfd_500m_bnkps.onnx')
+detector.prepare(-1)
+
 
 # ==== Lấy danh sách ảnh ====
 img_list = [f for f in os.listdir(img_folder) if f.lower().endswith(('.jpg', '.png', '.jpeg'))]
@@ -20,13 +27,23 @@ img_list = [f for f in os.listdir(img_folder) if f.lower().endswith(('.jpg', '.p
 for img_name in img_list:
     img_path = os.path.join(img_folder, img_name)
     img = cv2.imread(img_path)
+
     if img is None:
         print(f"Không đọc được ảnh: {img_path}")
         continue
-    h0, w0 = img.shape[:2]
+
+    bboxes, kpss = detector.detect(img, 0.5, input_size=(640, 640))
+    box = bboxes[0][:4]  # lấy bbox đầu tiên (hoặc bạn chọn bbox có score lớn nhất)
+    x1, y1, x2, y2 = box
+    center_x = (x1 + x2) / 2
+    center_y = (y1 + y2) / 2
+    center = np.array([center_x, center_y], dtype=np.float32)
+    img_crop, (crop_x, crop_y) = crop_center(img, center, size=450)
+
+    h0, w0 = img_crop.shape[:2]
 
     # Tiền xử lý
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_rgb = cv2.cvtColor(img_crop, cv2.COLOR_BGR2RGB)
     img_resized = cv2.resize(img_rgb, (image_size, image_size))
     img_norm = img_resized.astype(np.float32) / 255.0
     img_norm = (img_norm - mean) / std
@@ -34,15 +51,15 @@ for img_name in img_list:
 
     # Inference
     with torch.no_grad():
-        pred = model(img_tensor)  # [1, 212]
-        pred = pred.view(num_points, 2).cpu().numpy()
+        pred = model(img_tensor)
     # Đưa về pixel trên ảnh gốc
-    pred[:, 0] = pred[:, 0] * w0
-    pred[:, 1] = pred[:, 1] * h0
+    landmark = soft_argmax(pred)[0].cpu()
+    landmark[:, 0] = landmark[:, 0] * w0 / 56
+    landmark[:, 1] = landmark[:, 1] * h0 / 56
 
     # Vẽ landmark lên ảnh gốc (BGR)
-    img_vis = img.copy()
-    for (x, y) in pred:
+    img_vis = img_crop.copy()
+    for (x, y) in landmark:
         cv2.circle(img_vis, (int(x), int(y)), 2, (0, 0, 255), -1)
 
     # Hiển thị bằng OpenCV

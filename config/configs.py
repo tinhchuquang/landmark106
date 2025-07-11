@@ -5,14 +5,14 @@ num_points = 106
 mean = np.array([0.485, 0.456, 0.406]).reshape(1,1,3)
 std  = np.array([0.229, 0.224, 0.225]).reshape(1,1,3)
 ENLARGE_RATIO = 0.4
-img_dir = ['/media/tinhcq/data1/Training_data/LaPa/train/images', '/media/tinhcq/data1/Training_data/Data/images']
-label_dir = ['/media/tinhcq/data1/Training_data/LaPa/train/landmarks', '/media/tinhcq/data1/Training_data/Data/landmarks']
-val_img_dir = ['/media/tinhcq/data1/Training_data/LaPa/val/images']
-val_label_dir = ['/media/tinhcq/data1/Training_data/LaPa/val/landmarks']
-test_img_dir = ['/media/tinhcq/data1/Training_data/LaPa/test/images']
-test_label_dir = ['/media/tinhcq/data1/Training_data/LaPa/test/landmarks']
-best_save_model = 'checkpoints/106_landmark/best_landmark106_yolo.pth'
-last_save_model = 'checkpoints/106_landmark/landmark106_yolo.pth'
+img_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/images', '/media/tinhcq/data1/Training_data/Data/images']
+label_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/landmarks', '/media/tinhcq/data1/Training_data/Data/landmarks']
+val_img_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/val/images']
+val_label_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/val/landmarks']
+test_img_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/test/images']
+test_label_dir = ['/media/tinhcq/data1/Training_data/Lapa_Heatmap/test/landmarks']
+best_save_model = 'checkpoints/106_landmark/best_landmark106_hrnet.pth'
+last_save_model = 'checkpoints/106_landmark/landmark106_hrnet.pth'
 
 dst_pts = np.array([
     [38.2946, 51.6963],

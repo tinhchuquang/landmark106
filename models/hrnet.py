@@ -480,4 +480,8 @@ if __name__ == '__main__':
     from config.hrnet_w18_config import config
 
     model = get_face_alignment_net(config)
-    print(model)
+    x = torch.randn(4, 3, 224, 224)  # batch size = 1
+
+    # Forward
+    y = model(x)
+    print(y.shape)

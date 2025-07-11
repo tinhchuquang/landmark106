@@ -3,9 +3,7 @@ import numpy as np
 import os
 from scrfd import SCRFD
 
-if __name__ == '__main__':
-    detector = SCRFD(model_file='checkpoints/scrfd/scrfd_500m_bnkps.onnx')
-    detector.prepare(-1)
+def load_grand_challenge():
     label_dir = '/media/tinhcq/data1/Training_data/Corrected_landmark/Corrected_landmark'
     img_dir = '/media/tinhcq/data1/Training_data'
 
@@ -21,10 +19,37 @@ if __name__ == '__main__':
         img_path = os.path.join(img_dir, image_name)
         if os.path.exists(img_path):
             samples.append((img_path, label_path))
+    return samples
 
-    path_save = '/media/tinhcq/data1/Training_data/Data'
-    os.makedirs(os.path.join(path_save, 'image'), exist_ok=True)
-    os.makedirs(os.path.join(path_save, 'label'), exist_ok=True)
+def load_lapa():
+    label_dir = '/media/tinhcq/data1/Training_data/LaPa/test/landmarks'
+    img_dir = '/media/tinhcq/data1/Training_data/LaPa/test/images'
+    samples = []
+    for fname in os.listdir(label_dir):
+        label_path = os.path.join(label_dir, fname)
+        with open(label_path, 'r') as f:
+            lines = f.readlines()
+        num_points = len(lines) - 1
+        if num_points != 106:
+            continue
+        image_name = fname.replace('.txt', '.jpg')
+        img_path = os.path.join(img_dir, image_name)
+        if os.path.exists(img_path):
+            samples.append((img_path, label_path))
+    return samples
+
+if __name__ == '__main__':
+    detector = SCRFD(model_file='checkpoints/scrfd/scrfd_500m_bnkps.onnx')
+    detector.prepare(-1)
+
+    # samples = load_grand_challenge()
+    samples = load_lapa()
+
+    path_save = '/media/tinhcq/data1/Training_data/Lapa_Heatmap/test'
+    os.makedirs(os.path.join(path_save, 'images'), exist_ok=True)
+    os.makedirs(os.path.join(path_save, 'landmarks'), exist_ok=True)
+
+
 
     for s in samples:
         points = []
@@ -36,49 +61,25 @@ if __name__ == '__main__':
                 points.append([x, y])
         points = np.array(points, dtype=np.float32)
         #
-        # bboxes, kpss = detector.detect(image, 0.5, input_size=(640, 640))
-        # if len(bboxes) == 0:
-        #     print(f"Không detect được face: {s[0]}")
-        #     continue
-        #
-        # # Chọn bbox đầu tiên (lớn nhất)
-        # x1, y1, x2, y2, score = bboxes[0]
-        # w = x2 - x1
-        # h = y2 - y1
-        #
-        # # Mở rộng bbox
-        # dw = w * ENLARGE_RATIO / 2
-        # dh = h * ENLARGE_RATIO / 2
-        # nx1 = max(0, int(x1 - dw))
-        # ny1 = max(0, int(y1 - dh))
-        # nx2 = min(image.shape[1], int(x2 + dw))
-        # ny2 = min(image.shape[0], int(y2 + dh))
-        #
-        # # Crop ảnh theo box mới
-        # img_crop = image[ny1:ny2, nx1:nx2].copy()
-        # crop_h, crop_w = img_crop.shape[:2]
-        #
-        # # Cập nhật lại landmark về crop
-        # pts_crop = points.copy()
-        # pts_crop[:, 0] = pts_crop[:, 0] - nx1
-        # pts_crop[:, 1] = pts_crop[:, 1] - ny1
-        #
-        # # Scale landmark về image_size mới
-        # scale_x = image_size / crop_w
-        # scale_y = image_size / crop_h
-        # pts_resize = pts_crop.copy()
-        # pts_resize[:, 0] = pts_resize[:, 0] * scale_x
-        # pts_resize[:, 1] = pts_resize[:, 1] * scale_y
+        bboxes, kpss = detector.detect(image, 0.5, input_size=(640, 640))
+        if len(bboxes) == 0:
+            print(f"Không detect được face: {s[0]}")
+            continue
 
-        # Resize ảnh crop về image_size
-        # img_resize = cv2.resize(img_crop, (image_size, image_size))
+        # === Tính center landmark ===
+        box = bboxes[0][:4]  # lấy bbox đầu tiên (hoặc bạn chọn bbox có score lớn nhất)
+        x1, y1, x2, y2 = box
+        center_x = (x1 + x2) / 2
+        center_y = (y1 + y2) / 2
+        center = np.array([center_x, center_y], dtype=np.float32)
 
         # Lưu ra file
         base_name = os.path.splitext(os.path.basename(s[0]))[0]
-        out_img_path = os.path.join(path_save, 'image', f"{base_name}.jpg")
+        out_img_path = os.path.join(path_save, 'images', f"{base_name}.jpg")
         cv2.imwrite(out_img_path, image)
 
-        out_pts_path = os.path.join(path_save, 'label', f"{base_name}.txt")
+        out_pts_path = os.path.join(path_save, 'landmarks', f"{base_name}.txt")
         with open(out_pts_path, 'w') as f:
             f.write(f"{len(points)}\n")
+            f.write(f"{center[0]:.6f} {center[1]:.6f}\n")
             np.savetxt(f, points, fmt="%.6f")
