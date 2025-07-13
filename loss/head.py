@@ -37,3 +37,21 @@ class WingLoss(nn.Module):
             return loss.sum()
         else:
             return loss
+        
+def bce_heatmap_loss_mutil_scales(preds, gts, weights=[1.0, 1.0, 1.0]):
+    # preds, gts là list các scale: [out_small, out_medium, out_large]
+    # Mỗi cái [B, 106, H, W]
+    total_loss = 0
+    for i, (pred, gt) in enumerate(zip(preds, gts)):
+        # pred: logit (chưa sigmoid)
+        # gt: heatmap [0, 1]
+        loss = F.binary_cross_entropy_with_logits(pred, gt)
+        total_loss += weights[i] * loss
+    return total_loss
+
+
+def bce_heatmap_loss(pred, gt):
+    # pred: [B, 106, H, W] (logit, chưa sigmoid)
+    # gt:   [B, 106, H, W] (ground-truth heatmap, [0, 1])
+    loss = F.binary_cross_entropy_with_logits(pred, gt)
+    return loss

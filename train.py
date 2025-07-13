@@ -1,23 +1,30 @@
-from torch.utils.data import DataLoader
 import torch
-from models.hrnet import get_face_alignment_net
-from config.hrnet_w18_config import config as hrnet_w18_config
+import os
+import torch.nn as nn
+
+# from models.hrnet import get_face_alignment_net
+# from config.hrnet_w18_config import config as hrnet_w18_config
+from torch.utils.data import DataLoader
+
+from models.hrnet_w18 import HRNetW18
 from datasets.dataloader import LandmarkHeatmapDataset
 
 from config.configs import img_dir, label_dir
 from config.configs import val_img_dir, val_label_dir
 from config.configs import test_img_dir, test_label_dir
 from config.configs import last_save_model, best_save_model
-from loss.head import WingLoss
+from loss.head import bce_heatmap_loss
 
-def evaluate(model, loader, criterion):
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
+def evaluate(model, loader):
     # model.eval()
     total_loss = 0
     with torch.no_grad():
         for img, label in loader:
             img, label = img.cuda(), label.cuda()
             pred = model(img)
-            loss = criterion(pred, label)
+            loss = bce_heatmap_loss(pred, label)
             total_loss += loss.item() * img.size(0)
     avg_loss = total_loss / len(loader.dataset)
     return avg_loss
@@ -25,7 +32,7 @@ def evaluate(model, loader, criterion):
 def train():
 
     batch_size = 32
-    epochs = 30
+    epochs = 50
     lr = 1e-3
     img_size = 224
 
@@ -35,17 +42,20 @@ def train():
     # ])
 
     dataset = LandmarkHeatmapDataset(img_dir, label_dir, img_size)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=8)
 
     val_dataset = LandmarkHeatmapDataset(val_img_dir, val_label_dir)
-    val_loader = DataLoader(val_dataset, batch_size, shuffle=False, num_workers=4)
+    val_loader = DataLoader(val_dataset, batch_size, shuffle=False, num_workers=8)
 
     test_dataset = LandmarkHeatmapDataset(test_img_dir, test_label_dir)
-    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, num_workers=4)
+    test_loader = DataLoader(test_dataset, batch_size, shuffle=False, num_workers=8)
 
-    model = get_face_alignment_net(hrnet_w18_config).cuda()
+    # model = get_face_alignment_net(hrnet_w18_config).cuda()
+    model = HRNetW18(num_landmarks=106)
+    model = nn.DataParallel(model)
+    model = model.cuda()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
-    criterion = WingLoss()
+    # criterion = bce_heatmap_loss()
 
     best_val_loss = float('inf')
     for epoch in range(epochs):
@@ -54,7 +64,7 @@ def train():
         for img, label in loader:
             img, label = img.cuda(), label.cuda()
             pred = model(img)
-            loss = criterion(pred, label)
+            loss = bce_heatmap_loss(pred, label)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -62,8 +72,8 @@ def train():
         train_loss = total_loss / len(dataset)
         # print(f"Epoch {epoch+1}/{epochs}, Loss: {total_loss/len(dataset):.6f}")
 
-        val_loss = evaluate(model, val_loader, criterion)
-        test_loss = evaluate(model, test_loader, criterion)
+        val_loss = evaluate(model, val_loader)
+        test_loss = evaluate(model, test_loader)
 
         print(f"Epoch {epoch + 1}/{epochs}, "
               f"Train Loss: {train_loss:.6f}, "
@@ -73,10 +83,10 @@ def train():
         # Save best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), best_save_model)
+            torch.save(model.module.state_dict(), best_save_model)
 
     # Save last model
-    torch.save(model.state_dict(), last_save_model)
+    torch.save(model.module.state_dict(), last_save_model)
 
 if __name__ == "__main__":
     train()

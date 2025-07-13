@@ -1,7 +1,7 @@
 import torch
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+import os
 from dataloader import LandmarkHeatmapDataset
 
 def heatmaps_to_landmarks(heatmaps, img_size=224):
@@ -23,21 +23,26 @@ def heatmaps_to_landmarks(heatmaps, img_size=224):
 
 # --- Example Usage ---
 if __name__ == "__main__":
-    img_dir = '/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/images'
-    label_dir = '/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/landmarks'
+    img_dir = '/data2/tinhcq/Training_data/Lapa_Heatmap/train/images'
+    label_dir = '/data2/tinhcq/Training_data/Lapa_Heatmap/train/landmarks'
     dataset = LandmarkHeatmapDataset([img_dir], [label_dir])
     img, heatmaps = dataset[0]  # img: torch.Size([3, 224, 224]), heatmaps: torch.Size([106, 56, 56])
 
-    img_np = img.permute(1, 2, 0).numpy() * 255
-    img_np = img_np.astype(np.uint8)
-    landmarks = heatmaps_to_landmarks(heatmaps.numpy(), img_size=224)
+    save_dir = "test"
+    os.makedirs(save_dir, exist_ok=True)
 
-    # Vẽ landmark lên ảnh
-    for (x, y) in landmarks:
-        cv2.circle(img_np, (int(x), int(y)), 2, (255, 0, 0), -1)
+    for idx in range(len(dataset)):
+        img, heatmaps = dataset[idx]  # img: torch.Size([3, 224, 224])
+        img_np = img.permute(1, 2, 0).numpy() * 255
+        img_np = img_np.astype(np.uint8).copy()
 
-    plt.figure(figsize=(6,6))
-    plt.imshow(img_np)
-    plt.title('Landmarks from Heatmap')
-    plt.axis('off')
-    plt.show()
+        landmarks = heatmaps_to_landmarks(heatmaps.numpy(), img_size=224)
+
+        # Vẽ landmark lên ảnh
+        for (x, y) in landmarks:
+            cv2.circle(img_np, (int(x), int(y)), 2, (0, 0, 255), -1)  # OpenCV dùng BGR (màu đỏ)
+
+        save_path = os.path.join(save_dir, f"{idx}.jpg")
+        cv2.imwrite(save_path, cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR))
+
+        print(f"Saved: {save_path}")

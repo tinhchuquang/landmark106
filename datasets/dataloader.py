@@ -3,7 +3,10 @@ import os
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
+import sys
+sys.path.append('./..')
 from utils.preproces import crop_center
+
 
 def load_landmark_txt(label_path):
     with open(label_path, 'r') as f:
@@ -115,10 +118,70 @@ class LandmarkHeatmapDataset(Dataset):
 
         return img_tensor, heatmaps
 
+class LandmarkHeatmapDatasetMultilScale(Dataset):
+    def __init__(
+        self,
+        img_dir,
+        label_dir,
+        img_size=224,
+        heatmap_size=[(56, 56), (28, 28), (14, 14)],
+        sigma=2,
+        crop_size=450,
+    ):
+        self.img_dir = img_dir
+        self.label_dir = label_dir
+        self.img_size = img_size
+        self.heatmap_size = heatmap_size
+        self.sigma = sigma
+        self.crop_size = crop_size
+        self.samples = []
+        for img_folder, label_folder in zip(self.img_dir, self.label_dir):
+            for fname in os.listdir(label_folder):
+                img_name = fname.replace('.txt', '.jpg')
+                img_path = os.path.join(img_folder, img_name)
+                label_path = os.path.join(label_folder, fname)
+                if os.path.exists(img_path):
+                    self.samples.append((img_path, label_path))
+        # Augmentation pipeline (bạn có thể tuỳ chỉnh thêm transform nếu muốn)
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        img_path, label_path = self.samples[idx]
+        img = cv2.imread(img_path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+        center, points = load_landmark_txt(label_path)
+        img_crop, (crop_x, crop_y) = crop_center(img, center, size=self.crop_size)
+        points_crop = points - np.array([crop_x, crop_y])
+
+
+        # Resize về img_size x img_size (ảnh và landmark)
+        img_resized = cv2.resize(img_crop, (self.img_size, self.img_size))
+        scale_x = self.img_size / img_crop.shape[1]
+        scale_y = self.img_size / img_crop.shape[0]
+        points_resized = points_crop.copy()
+        points_resized[:, 0] *= scale_x
+        points_resized[:, 1] *= scale_y
+
+        img_tensor = img_resized.astype(np.float32) / 255.0
+        img_tensor = torch.from_numpy(img_tensor).permute(2, 0, 1)
+
+        heatmaps56 = generate_heatmaps(points_resized, heatmap_size=self.heatmap_size[0], img_size=self.img_size, sigma=self.sigma)
+        heatmaps28 =  generate_heatmaps(points_resized, heatmap_size=self.heatmap_size[1], img_size=self.img_size, sigma=self.sigma)
+        heatmaps14 = generate_heatmaps(points_resized, heatmap_size=self.heatmap_size[2], img_size=self.img_size, sigma=self.sigma)
+        heatmaps56 = torch.from_numpy(heatmaps56)
+        heatmaps28 = torch.from_numpy(heatmaps28)
+        heatmaps14 = torch.from_numpy(heatmaps14)
+
+        return img_tensor, heatmaps56, heatmaps28, heatmaps14 
+
 # --- Example Usage ---
 if __name__ == "__main__":
-    img_dir = '/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/images'
-    label_dir = '/media/tinhcq/data1/Training_data/Lapa_Heatmap/train/landmarks'
-    dataset = LandmarkHeatmapDataset(img_dir, label_dir)
-    img, heatmaps = dataset[0]
-    print(img.shape, heatmaps.shape)  # [3, 224, 224], [106, 56, 56]
+    img_dir = ['/data2/tinhcq/Training_data/Lapa_Heatmap/train/images']
+    label_dir = ['/data2/tinhcq/Training_data/Lapa_Heatmap/train/landmarks']
+    dataset = LandmarkHeatmapDatasetMultilScale(img_dir, label_dir)
+    img,  heatmaps56, heatmaps28, heatmaps14  = dataset[0]
+    print(heatmaps14)
+    print(img.shape,  heatmaps56.shape, heatmaps28.shape, heatmaps14.shape)  # [3, 224, 224], [106, 56, 56]

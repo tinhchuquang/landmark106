@@ -3,18 +3,19 @@ import torch
 import cv2
 import numpy as np
 from utils.preproces import  crop_center
-from models.hrnet import get_face_alignment_net
-from config.hrnet_w18_config import config as hrnet_w18_config
+# from models.hrnet import get_face_alignment_net
+# from config.hrnet_w18_config import config as hrnet_w18_config
+from models.hrnet_w18 import HRNetW18
 from config.configs import num_points, image_size, std, mean
 from scrfd import SCRFD
-from utils.heatmap2landmark import soft_argmax
+from utils.heatmap2landmark import heatmaps_to_landmarks
 
 # ==== Đường dẫn ====
-img_folder = '/media/tinhcq/data1/Training_data/LaPa/train/images'  # Thư mục chứa ảnh
-model_weight = 'checkpoints/106_landmark/best_landmark106_hrnet.pth'
+img_folder = '/data2/tinhcq/Training_data/Lapa_Heatmap/train/images'  # Thư mục chứa ảnh
+model_weight = 'checkpoints/106_landmark/best_landmark106_hrnetw18.pth'
 
 # ==== Load model Landmark ====
-model = get_face_alignment_net(hrnet_w18_config)
+model = HRNetW18(num_landmarks=106)
 model.load_state_dict(torch.load(model_weight, map_location='cpu'))
 model.eval()
 detector = SCRFD(model_file='checkpoints/scrfd/scrfd_500m_bnkps.onnx')
@@ -39,7 +40,7 @@ for img_name in img_list:
     center_y = (y1 + y2) / 2
     center = np.array([center_x, center_y], dtype=np.float32)
     img_crop, (crop_x, crop_y) = crop_center(img, center, size=450)
-
+    # img_crop = img.copy()
     h0, w0 = img_crop.shape[:2]
 
     # Tiền xử lý
@@ -53,7 +54,7 @@ for img_name in img_list:
     with torch.no_grad():
         pred = model(img_tensor)
     # Đưa về pixel trên ảnh gốc
-    landmark = soft_argmax(pred)[0].cpu()
+    landmark = heatmaps_to_landmarks(pred)[0].cpu()
     landmark[:, 0] = landmark[:, 0] * w0 / 56
     landmark[:, 1] = landmark[:, 1] * h0 / 56
 
@@ -63,9 +64,9 @@ for img_name in img_list:
         cv2.circle(img_vis, (int(x), int(y)), 2, (0, 0, 255), -1)
 
     # Hiển thị bằng OpenCV
-    cv2.imshow("Landmark 106", img_vis)
-    key = cv2.waitKey(0)
-    if key == 27:  # ESC để thoát
-        break
+    cv2.imwrite("test/" + img_name, img_vis)
+    # key = cv2.waitKey(0)
+    # if key == 27:  # ESC để thoát
+    #     break
 
-cv2.destroyAllWindows()
+# cv2.destroyAllWindows()
