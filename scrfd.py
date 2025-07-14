@@ -173,7 +173,6 @@ class SCRFD:
         input_size = tuple(img.shape[0:2][::-1])
         blob = cv2.dnn.blobFromImage(img, 1.0 / 128, input_size, (127.5, 127.5, 127.5), swapRB=True)
         net_outs = self.session.run(self.output_names, {self.input_name: blob})
-
         input_height = blob.shape[2]
         input_width = blob.shape[3]
         fmc = self.fmc
@@ -192,6 +191,8 @@ class SCRFD:
                 bbox_preds = bbox_preds * stride
                 if self.use_kps:
                     kps_preds = net_outs[idx + fmc * 2] * stride
+            print(bbox_preds[:2])
+            
 
             height = input_height // stride
             width = input_width // stride
@@ -328,7 +329,7 @@ if __name__ == '__main__':
     # detector = SCRFD(model_file='./det.onnx')
     detector = SCRFD(model_file='checkpoints/scrfd/scrfd_500m_bnkps.onnx')
     detector.prepare(-1)
-    img_paths = ['/media/tinhcq/data1/Training_data/AFW/picture/AFW_3989161_1_0.jpg']
+    img_paths = ['test/test.jpg']
     for img_path in img_paths:
         img = cv2.imread(img_path)
 
@@ -337,12 +338,13 @@ if __name__ == '__main__':
             bboxes, kpss = detector.detect(img, 0.5, input_size=(640, 640))
             # bboxes, kpss = detector.detect(img, 0.5)
             tb = datetime.datetime.now()
-            print('all cost:', (tb - ta).total_seconds() * 1000)
+            # print('all cost:', (tb - ta).total_seconds() * 1000)
         print(img_path, bboxes.shape)
         if kpss is not None:
             print(kpss.shape)
         for i in range(bboxes.shape[0]):
             bbox = bboxes[i]
+            print(bbox)
             x1, y1, x2, y2, score = bbox.astype(int)
             cv2.rectangle(img, (x1, y1), (x2, y2), (255, 0, 0), 2)
             if kpss is not None:
@@ -351,6 +353,6 @@ if __name__ == '__main__':
                     kp = kp.astype(int)
                     cv2.circle(img, tuple(kp), 1, (0, 0, 255), 2)
         filename = img_path.split('/')[-1]
-        cv2.imshow('image', img)
-        cv2.waitKey(0)
-        # cv2.imwrite('%s' % , img)
+        # cv2.imshow('image', img)
+        # cv2.waitKey(0)
+        cv2.imwrite('result.jpg'  , img)

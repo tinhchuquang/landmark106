@@ -1,0 +1,21 @@
+version: "3"
+services:
+
+  python:
+    shm_size: '10gb'
+    image: nvcr.io/nvidia/tensorrt:23.12-py3
+    command: /bin/bash
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    network_mode: "host"
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - "/media/tinhcq/data2/ALL_VNPT_PROJECT:/home/data"
+    stdin_open: true
+    tty: true
