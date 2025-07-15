@@ -31,8 +31,8 @@ def evaluate(model, loader):
 
 def train():
 
-    batch_size = 32
-    epochs = 50
+    batch_size = 64
+    epochs = 100
     lr = 1e-3
     img_size = 224
 
