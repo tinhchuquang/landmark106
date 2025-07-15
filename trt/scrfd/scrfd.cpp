@@ -69,18 +69,6 @@ int main() {
 
     CHECK(cudaMemcpy(inputData, cpu_input.data(), inputSize, cudaMemcpyHostToDevice));
 
-    // const char* output_names[9] = {
-    //     "score_8", "score_16", "score_32",
-    //     "bbox_8", "bbox_16", "bbox_32",
-    //     "kps_8", "kps_16", "kps_32"
-    // };
-
-    // int shapes[9][3] = {
-    //     {1,12800,1}, {1,3200,1}, {1,800,1},
-    //     {1,12800,4}, {1,3200,4}, {1,800,4},
-    //     {1,12800,10}, {1,3200,10}, {1,800,10}
-    // };
-
     const char* output_names[9] = {
         "score_8", "bbox_8", "kps_8",
         "score_16", "bbox_16", "kps_16",
@@ -111,40 +99,45 @@ int main() {
     context->enqueueV2(buffers.data(), stream, nullptr);
     cudaStreamSynchronize(stream);
 
+    // In ra out của trt (có thể nó khác onnx)
+    // int nbBindings = engine->getNbBindings();
+    // for (int i = 0; i < nbBindings; ++i) {
+    //     const char* name = engine->getBindingName(i);
+    //     bool is_input = engine->bindingIsInput(i);
+    //     std::cout << (is_input ? "Input" : "Output") << " binding " << i << ": " << name << std::endl;
+
+    //     nvinfer1::Dims dims = engine->getBindingDimensions(i);
+    //     std::cout << "  Shape: [";
+    //     for (int j = 0; j < dims.nbDims; ++j) {
+    //         std::cout << dims.d[j];
+    //         if (j < dims.nbDims - 1) std::cout << ", ";
+    //     }
+    //     std::cout << "]\n";
+    // }
+
     // Copy output to host
     std::vector<std::vector<float>> host_outputs(9);
     for (int i = 0; i < 9; ++i) {
-        std::cout << output_names[i] << ": shape=[" << shapes[i][0] << "," << shapes[i][1] << "," << shapes[i][2] << "], ";
-        std::cout << "output_sizes[" << i << "]=" << output_sizes[i] << std::endl;
-        // host_outputs[i].resize(output_sizes[i]);
-        // CHECK(cudaMemcpy(host_outputs[i].data(), output_ptrs[i], output_sizes[i]*sizeof(float), cudaMemcpyDeviceToHost));
+        host_outputs[i].resize(output_sizes[i]);
+        CHECK(cudaMemcpy(host_outputs[i].data(), output_ptrs[i], output_sizes[i]*sizeof(float), cudaMemcpyDeviceToHost));
     }
     std::vector<std::vector<float>> scores = {host_outputs[0], host_outputs[3], host_outputs[6]};
     std::vector<std::vector<float>> bboxes = {host_outputs[1], host_outputs[4], host_outputs[7]};
     std::vector<std::vector<float>> kpss  = {host_outputs[2], host_outputs[5], host_outputs[8]};
+    for (float& v : bboxes[0]) v *= 8;
+    for (float& v : kpss[0])  v *= 8;
+    for (float& v : bboxes[1]) v *= 16;
+    for (float& v : kpss[1])  v *= 16;
+    for (float& v : bboxes[2]) v *= 32;
+    for (float& v : kpss[2])  v *= 32;
 
-    // std::vector<FaceObject> faces = scrfd_postprocess(scores, bboxes, kpss, 0.4, 0.45, inputW, inputH, 5);
-    
-    // for (size_t i = 0; i < faces.size(); ++i) {
-    //     const auto& face = faces[i];
-    //     std::cout << "Face " << i << ": "
-    //             << "score=" << face.conf << ", "
-    //             << "bbox=[" << face.box.x << "," << face.box.y << "," 
-    //             << face.box.width << "," << face.box.height << "], "
-    //             << "kps=[";
-    //     for (size_t k = 0; k < face.kps.size(); ++k) {
-    //         std::cout << "(" << face.kps[k].x << "," << face.kps[k].y << ")";
-    //         if (k != face.kps.size()-1) std::cout << ", ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    // map_faceobjects_to_origin(faces, det_scale, new_width, new_height, img.cols, img.rows);
-
-    // for (const auto& face : faces) {
-    //     cv::rectangle(img, face.box, cv::Scalar(0,255,0), 2);
-    //     for (const auto& kp : face.kps)
-    //         cv::circle(img, kp, 2, cv::Scalar(0,0,255), -1);
-    //     // cv::putText... nếu muốn in conf
-    //     }
-    // cv::imwrite("result.jpg", img);
+    auto faces = scrfd_postprocess(scores, bboxes, kpss, 0.4, 0.45, inputW, inputH, 5);
+    map_faceobjects_to_origin(faces, det_scale, img.cols, img.rows);
+    for (const auto& face : faces) {
+        cv::rectangle(img, face.box, cv::Scalar(0,255,0), 2);
+        for (const auto& kp : face.kps)
+            cv::circle(img, kp, 2, cv::Scalar(0,0,255), -1);
+        // cv::putText... nếu muốn in conf
+        }
+    cv::imwrite("result.jpg", img);
 }

@@ -80,7 +80,7 @@ class SCRFD:
             assert self.model_file is not None
             assert osp.exists(self.model_file)
             available_providers = onnxruntime.get_available_providers()
-            print('Available execution providers:', available_providers)
+            # print('Available execution providers:', available_providers)
 
             sess_options = onnxruntime.SessionOptions()
             providers = None
@@ -108,9 +108,9 @@ class SCRFD:
                 self.model_file, sess_options=sess_options, providers=providers,
                 provider_options=provider_options)
             # Logging OpenVINO
-            if providers[0] == 'OpenVINOExecutionProvider':
-                print('Available OpenVINO devices IDs:',
-                      onnxruntime.capi._pybind_state.get_available_openvino_device_ids())
+            # if providers[0] == 'OpenVINOExecutionProvider':
+            #     print('Available OpenVINO devices IDs:',
+            #           onnxruntime.capi._pybind_state.get_available_openvino_device_ids())
 
         self.center_cache = {}
         self.nms_thresh = 0.4
@@ -191,12 +191,12 @@ class SCRFD:
                 bbox_preds = bbox_preds * stride
                 if self.use_kps:
                     kps_preds = net_outs[idx + fmc * 2] * stride
-            print(bbox_preds[:2])
+            # print(bbox_preds[:2])
             
 
             height = input_height // stride
             width = input_width // stride
-            K = height * width
+            # K = height * width
             key = (height, width, stride)
             if key in self.center_cache:
                 anchor_centers = self.center_cache[key]
@@ -223,7 +223,8 @@ class SCRFD:
                     anchor_centers = np.stack([anchor_centers] * self._num_anchors, axis=1).reshape((-1, 2))
                 if len(self.center_cache) < 100:
                     self.center_cache[key] = anchor_centers
-
+            
+            # print(anchor_centers.shape, anchor_centers[:1])
             pos_inds = np.where(scores >= thresh)[0]
             bboxes = distance2bbox(anchor_centers, bbox_preds)
             pos_scores = scores[pos_inds]
@@ -256,6 +257,7 @@ class SCRFD:
         det_img[:new_height, :new_width, :] = resized_img
 
         scores_list, bboxes_list, kpss_list = self.forward(det_img, thresh)
+        # print(bboxes_list)
 
         scores = np.vstack(scores_list)
         scores_ravel = scores.ravel()
@@ -339,9 +341,9 @@ if __name__ == '__main__':
             # bboxes, kpss = detector.detect(img, 0.5)
             tb = datetime.datetime.now()
             # print('all cost:', (tb - ta).total_seconds() * 1000)
-        print(img_path, bboxes.shape)
-        if kpss is not None:
-            print(kpss.shape)
+        # print(img_path, bboxes.shape)
+        # if kpss is not None:
+        #     print(kpss.shape)
         for i in range(bboxes.shape[0]):
             bbox = bboxes[i]
             print(bbox)
