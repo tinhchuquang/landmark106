@@ -9,6 +9,14 @@ def focal_loss(pred, target, alpha=2.0, gamma=2.0):
     loss = (alpha * (1-pt)**gamma * bce).mean()
     return loss
 
+class L2_98landmark_loss(nn.Module):
+    def __init__(self):
+        super(L2_98landmark_loss, self).__init__()
+
+    def forward(self, landmark_gt, landmarks):
+        l2_distant = torch.sum((landmark_gt - landmarks) * (landmark_gt - landmarks), axis=1)
+        return torch.mean(l2_distant)
+
 
 class WingLoss(nn.Module):
     def __init__(self, w=10.0, epsilon=2.0, reduction='mean'):

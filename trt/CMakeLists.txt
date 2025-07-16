@@ -8,9 +8,16 @@ find_package(OpenCV REQUIRED)
 
 # Bao gồm thư mục scrfd và thư mục hiện tại
 include_directories(/usr/local/cuda/include)
-include_directories(${OpenCV_INCLUDE_DIRS} ./ ./scrfd)
+include_directories(${OpenCV_INCLUDE_DIRS})
+include_directories(
+    ./scrfd
+    ./utils
+    ./pfld
+    ./
+    .
+)
 
-add_executable(scrfd scrfd/scrfd.cpp scrfd/scrfd_postprocess.h)
+add_executable(pfld scrfd/scrfd.h scrfd/scrfd_postprocess.h utils/utils.cpp)
 
 # Link OpenCV + TensorRT + CUDA runtime (thường hệ thống đã có)
 target_link_directories(scrfd PUBLIC /usr/local/cuda/lib64)
