@@ -5,4 +5,4 @@ mkdir build && cd build
 cmake ..
 make -j$(nproc)
 cd ..
-echo "Done. Run with: ./build/scrfd"
+echo "Done. Run with: ./build/pfld"

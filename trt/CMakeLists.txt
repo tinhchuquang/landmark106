@@ -17,11 +17,11 @@ include_directories(
     .
 )
 
-add_executable(pfld scrfd/scrfd.h scrfd/scrfd_postprocess.h utils/utils.cpp)
+add_executable(pfld pfld/pfld.cpp scrfd/scrfd.cpp scrfd/scrfd_postprocess.h utils/utils.cpp)
 
 # Link OpenCV + TensorRT + CUDA runtime (thường hệ thống đã có)
-target_link_directories(scrfd PUBLIC /usr/local/cuda/lib64)
-target_link_libraries(scrfd
+target_link_directories(pfld PUBLIC /usr/local/cuda/lib64)
+target_link_libraries(pfld
     ${OpenCV_LIBS}
     nvinfer
     cudart

@@ -64,7 +64,7 @@ class YOLOv10_Landmark_Heatmap(nn.Module):
         # Backbone YOLOv10 (simple version)
         self.stem = nn.Sequential(
             nn.Conv2d(3, 32, 3, 2, 1), nn.BatchNorm2d(32), nn.SiLU(),
-            nn.Conv2d(32, 64, 3, 2, 1), nn.BatchNorm2d(64), nn.SiLU()
+            nn.Conv2d(32, 64, 3, 1, 1), nn.BatchNorm2d(64), nn.SiLU()
         ) # [B, 64, 56, 56]
         self.block1 = C2f(64, 128, n=2)   # [B, 128, 28, 28]
         self.block2 = C2f(128, 256, n=2)  # [B, 256, 14, 14]
@@ -91,6 +91,6 @@ class YOLOv10_Landmark_Heatmap(nn.Module):
 
 if __name__ == "__main__":
     model = YOLOv10_Landmark_Heatmap(num_landmarks=106, heatmap_size=56)
-    x = torch.randn(2, 3, 224, 224)
+    x = torch.randn(2, 3, 112, 112)
     y = model(x)
     print(y.shape)  # [2, 106, 56, 56]
